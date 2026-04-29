@@ -912,11 +912,9 @@ enum TipoDocumento {
   OUTRO
 }
 
-/**
- * Documento/anexo unificado. Vinculado a EXATAMENTE UMA entidade
- * (assistido OU solicitação OU visita OU relatório OU plano de ação).
- * A regra de "exatamente um" é validada no service.
- */
+/// Documento/anexo unificado. Vinculado a EXATAMENTE UMA entidade
+/// (assistido OU solicitação OU visita OU relatório OU plano de ação).
+/// A regra de "exatamente um" é validada no service.
 model Documento {
   id             String @id @default(uuid())
   organizationId String
