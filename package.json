@@ -1,0 +1,20 @@
+{
+  "name": "gestao-visitas",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Aplicativo cliente da Central de Acessos para gestão de visitas de OSCs.",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:api": "pnpm --filter @gestao-visitas/api run dev",
+    "dev:web": "pnpm --filter @gestao-visitas/web run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "prisma:generate": "pnpm --filter @gestao-visitas/api run prisma:generate",
+    "prisma:migrate": "pnpm --filter @gestao-visitas/api run prisma:migrate"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

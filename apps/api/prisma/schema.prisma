@@ -1,0 +1,972 @@
+// Prisma schema — Gestão de Visitas
+// =============================================================
+// CLAUDE.md §2: nada de tabelas users/organizations/sessions/roles/
+// permissions. Identidade fica na Central. Aqui só referências por
+// externalUserId (string, sem FK para tabelas locais de identidade).
+//
+// Toda tabela de domínio:
+//   - traz organizationId (chave de tenant);
+//   - tem auditoria (createdByExternalUserId, updatedByExternalUserId,
+//     createdAt, updatedAt, deletedAt — soft-delete).
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------- Identidade local (referências à Central) --------------
+
+model OrganizationTenant {
+  id             String    @id @default(uuid())
+  organizationId String    @unique
+  licenseId      String?
+  orgName        String?
+  cnpj           String?
+  appSlug        String?
+  active         Boolean   @default(true)
+  provisionedAt  DateTime  @default(now())
+  disabledAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  userRefs            UserRef[]
+  assistidos          Assistido[]
+  educadores          Educador[]
+  visitadores         Visitador[]
+  disponibilidades    VisitadorDisponibilidade[]
+  visitas             Visita[]
+  relatoriosVisita    RelatorioVisita[]
+  solicitacoesVisita  SolicitacaoVisita[]
+  planosAcao          PlanoAcao[]
+  triagens            Triagem[]
+  programas           Programa[]
+  motivosVisita       MotivoVisita[]
+  tiposEncaminhamento TipoEncaminhamento[]
+  prioridades         Prioridade[]
+  statusList          Status[]
+  parametros          ParametroApp[]
+  documentos          Documento[]
+
+  @@index([active])
+  @@map("organization_tenants")
+}
+
+model UserRef {
+  id             String    @id @default(uuid())
+  externalUserId String
+  organizationId String
+
+  email                String?
+  name                 String?
+  lastKnownCentralRole String?
+
+  preferences Json?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+
+  @@unique([organizationId, externalUserId])
+  @@index([organizationId])
+  @@map("user_refs")
+}
+
+// -------- Cadastros principais ----------------------------------
+
+model Assistido {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome           String
+  cpf            String?
+  dataNascimento DateTime? @db.Date
+  telefone       String?
+  email          String?
+  endereco       String?
+  bairro         String?
+  cidade         String?
+  uf             String?  @db.VarChar(2)
+  cep            String?
+  observacoes    String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant             OrganizationTenant   @relation(fields: [organizationId], references: [organizationId])
+  visitas            Visita[]
+  solicitacoesVisita SolicitacaoVisita[]
+  planosAcao         PlanoAcao[]
+  matriculas         MatriculaAssistido[]
+  documentos         Documento[]
+
+  @@unique([organizationId, cpf])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, nome])
+  @@map("assistidos")
+}
+
+model MatriculaAssistido {
+  id             String @id @default(uuid())
+  organizationId String
+
+  assistidoId String
+  programaId  String
+
+  dataInicio  DateTime?
+  dataFim     DateTime?
+  ativa       Boolean   @default(true)
+  observacoes String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  assistido Assistido @relation(fields: [assistidoId], references: [id])
+  programa  Programa  @relation(fields: [programaId], references: [id])
+
+  @@index([organizationId, assistidoId, deletedAt])
+  @@index([organizationId, programaId, deletedAt])
+  @@map("matriculas_assistido")
+}
+
+enum EducadorCargo {
+  EDUCADOR
+  COORDENADOR
+}
+
+model Educador {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome      String
+  email     String?
+  telefone  String?
+  cargo     EducadorCargo @default(EDUCADOR)
+  formacao  String?
+  ativo     Boolean       @default(true)
+  observacoes String?
+
+  // Se este educador também é um usuário da Central que faz login no app,
+  // guardamos o externalUserId aqui. Sem FK — o vínculo é lógico.
+  externalUserId String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, ativo])
+  @@index([organizationId, nome])
+  @@unique([organizationId, externalUserId])
+  @@map("educadores")
+}
+
+model Visitador {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome      String
+  email     String?
+  telefone  String?
+  ativo     Boolean @default(true)
+  observacoes String?
+
+  /// Perfis livres (ex.: PSICOLOGO, ASSISTENTE_SOCIAL, EDUCADOR_SOCIAL).
+  /// Usados pela designação para casar visitador ↔ necessidade técnica.
+  perfis  String[] @default([])
+  /// Regiões/bairros que este visitador atende.
+  regioes String[] @default([])
+
+  // Mesmo princípio do Educador: opcional, sem FK.
+  externalUserId String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant                OrganizationTenant         @relation(fields: [organizationId], references: [organizationId])
+  visitasComoPrimario   Visita[]                   @relation("VisitadorPrimario")
+  visitasComoSecundario Visita[]                   @relation("VisitadorSecundario")
+  disponibilidades      VisitadorDisponibilidade[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, ativo])
+  @@index([organizationId, nome])
+  @@unique([organizationId, externalUserId])
+  @@map("visitadores")
+}
+
+enum DiaSemana {
+  SEGUNDA
+  TERCA
+  QUARTA
+  QUINTA
+  SEXTA
+  SABADO
+  DOMINGO
+}
+
+model VisitadorDisponibilidade {
+  id             String @id @default(uuid())
+  organizationId String
+  visitadorId    String
+
+  diaSemana  DiaSemana
+  /// Hora inicial no formato "HH:mm" (24h).
+  horaInicio String
+  /// Hora final no formato "HH:mm" (24h, exclusiva).
+  horaFim    String
+  ativo      Boolean   @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  visitador Visitador          @relation(fields: [visitadorId], references: [id])
+  tenant    OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+
+  @@index([organizationId, visitadorId, ativo])
+  @@index([organizationId, diaSemana, ativo])
+  @@map("visitador_disponibilidades")
+}
+
+// -------- Domínio: Visita ---------------------------------------
+
+enum VisitaTipo {
+  INICIAL
+  ACOMPANHAMENTO
+  ENCERRAMENTO
+  EMERGENCIAL
+}
+
+enum VisitaStatus {
+  AGENDADA
+  REALIZADA
+  NAO_REALIZADA
+  CANCELADA
+  REAGENDADA
+}
+
+enum SituacaoVisita {
+  REALIZADA
+  NAO_REALIZADA
+}
+
+enum MotivoNaoRealizacao {
+  ASSISTIDO_AUSENTE
+  ENDERECO_NAO_LOCALIZADO
+  RECUSA_DE_ATENDIMENTO
+  RECUSA_DA_FAMILIA
+  CONDICOES_INSEGURAS
+  IMPREVISTO_VISITADOR
+  OUTRO
+}
+
+enum Criticidade {
+  BAIXA
+  MEDIA
+  ALTA
+  MUITO_ALTA
+}
+
+enum StatusCaso {
+  ATIVO
+  EM_ACOMPANHAMENTO
+  ENCAMINHADO
+  ENCERRADO
+}
+
+model Visita {
+  id             String @id @default(uuid())
+  organizationId String
+
+  assistidoId           String
+  visitadorId           String
+  visitadorSecundarioId String?
+
+  tipo           VisitaTipo
+  status         VisitaStatus @default(AGENDADA)
+  dataAgendada   DateTime
+  dataRealizada  DateTime?
+  duracaoMinutos Int?
+  endereco       String?
+  observacoes    String?
+  resultado      String?
+
+  // Tracking de transições.
+  confirmadaEm        DateTime?
+  confirmadaPorExternalUserId String?
+  motivoCancelamento  String?
+  motivoReagendamento String?
+  reagendamentoCount  Int       @default(0)
+
+  // Check-in (chegada do visitador no local).
+  checkInEm                 DateTime?
+  checkInPorExternalUserId  String?
+  checkInLatitude           Float?
+  checkInLongitude          Float?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant              OrganizationTenant  @relation(fields: [organizationId], references: [organizationId])
+  assistido           Assistido           @relation(fields: [assistidoId], references: [id])
+  visitador           Visitador           @relation("VisitadorPrimario", fields: [visitadorId], references: [id])
+  visitadorSecundario Visitador?          @relation("VisitadorSecundario", fields: [visitadorSecundarioId], references: [id])
+  anexos              VisitaAnexo[]
+  solicitacoes        SolicitacaoVisita[]
+  relatorio           RelatorioVisita?
+  planosAcao          PlanoAcao[]
+  documentos          Documento[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, status, dataAgendada])
+  @@index([organizationId, assistidoId])
+  @@index([organizationId, visitadorId, dataAgendada])
+  @@index([organizationId, visitadorSecundarioId, dataAgendada])
+  @@index([organizationId, dataAgendada])
+  @@map("visitas")
+}
+
+model VisitaAnexo {
+  id             String @id @default(uuid())
+  organizationId String
+  visitaId       String
+
+  nome     String
+  mimeType String
+  tamanho  Int
+  url      String
+
+  createdByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  deletedAt               DateTime?
+
+  visita Visita @relation(fields: [visitaId], references: [id])
+
+  @@index([organizationId, visitaId, deletedAt])
+  @@map("visita_anexos")
+}
+
+// -------- Cadastros auxiliares (configuráveis por OSC) ----------
+
+enum ProgramaTipo {
+  ATIVIDADE
+  CURSO
+  PROJETO
+}
+
+model Programa {
+  id             String       @id @default(uuid())
+  organizationId String
+
+  nome         String
+  codigo       String?
+  tipo         ProgramaTipo @default(ATIVIDADE)
+  descricao    String?
+  cor          String?
+  cargaHoraria Int?
+  ativo        Boolean      @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant             OrganizationTenant   @relation(fields: [organizationId], references: [organizationId])
+  solicitacoesVisita SolicitacaoVisita[]
+  matriculas         MatriculaAssistido[]
+
+  @@unique([organizationId, codigo])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, tipo, ativo])
+  @@map("programas")
+}
+
+model MotivoVisita {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome   String
+  codigo String?
+  cor    String?
+  ordem  Int     @default(0)
+  ativo  Boolean @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant                  OrganizationTenant  @relation(fields: [organizationId], references: [organizationId])
+  solicitacoesPrincipal   SolicitacaoVisita[] @relation("SolicitacaoMotivoPrincipal")
+  solicitacoesSecundarias SolicitacaoVisita[] @relation("SolicitacaoMotivosSecundarios")
+
+  @@unique([organizationId, codigo])
+  @@index([organizationId, deletedAt])
+  @@map("motivos_visita")
+}
+
+model TipoEncaminhamento {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome   String
+  codigo String?
+  cor    String?
+  ordem  Int     @default(0)
+  ativo  Boolean @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant                OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+  triagensEncaminhadas  Triagem[]          @relation("TriagemSetorEncaminhamento")
+
+  @@unique([organizationId, codigo])
+  @@index([organizationId, deletedAt])
+  @@map("tipos_encaminhamento")
+}
+
+model Prioridade {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome   String
+  codigo String?
+  cor    String?
+  /// Maior nivel = maior prioridade. Usado para ordenar listas.
+  nivel  Int     @default(0)
+  ativo  Boolean @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant                OrganizationTenant  @relation(fields: [organizationId], references: [organizationId])
+  solicitacoesVisita    SolicitacaoVisita[]
+  triagensReclassificad Triagem[]           @relation("TriagemPrioridadeReclassificada")
+
+  @@unique([organizationId, codigo])
+  @@index([organizationId, deletedAt])
+  @@map("prioridades")
+}
+
+model Status {
+  id             String  @id @default(uuid())
+  organizationId String
+
+  nome   String
+  codigo String?
+  cor    String?
+  /// Categoria livre para escopar o status (ex.: "VISITA",
+  /// "ENCAMINHAMENTO", "PROGRAMA"). Não é enum para permitir
+  /// extensão por OSC sem migration.
+  categoria String?
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+
+  @@unique([organizationId, categoria, codigo])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, categoria, ativo])
+  @@map("status_customizados")
+}
+
+model ParametroApp {
+  id             String @id @default(uuid())
+  organizationId String
+
+  /// Chave única por OSC (ex.: "visita.duracao_padrao_min").
+  chave     String
+  /// Valor estruturado — JSON livre.
+  valor     Json
+  descricao String?
+  /// Categoria para agrupar na UI (ex.: "agenda", "notificacoes").
+  categoria String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tenant OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+
+  @@unique([organizationId, chave])
+  @@index([organizationId, categoria])
+  @@map("parametros_app")
+}
+
+// -------- Relatório da execução da visita -----------------------
+
+model RelatorioVisita {
+  id             String @id @default(uuid())
+  organizationId String
+  visitaId       String @unique
+
+  // ----- Identificação / contexto -----
+  /// Marcado quando o relatório é finalizado (situacao definida).
+  finalizadoEm DateTime?
+  finalizadoPorExternalUserId String?
+
+  dataExecucao    DateTime?
+  /// Hora local em formato "HH:mm" — entrada manual pelo visitador.
+  horaInicio      String?
+  horaFim         String?
+  presencaFamilia Boolean   @default(false)
+
+  // ----- Situação -----
+  situacao             SituacaoVisita?
+  motivoNaoRealizacao  MotivoNaoRealizacao?
+  observacoesNaoRealizacao String?
+
+  // ----- Avaliação técnica (texto livre) -----
+  condicoesResidencia    String?
+  /// Estrutura livre: array de membros da família.
+  composicaoFamiliar     Json?
+  higiene                String?
+  alimentacao            String?
+  condicoesEmocionais    String?
+  relacoesFamiliares     String?
+  redeApoio              String?
+  vulnerabilidade        String?
+  comportamentoAssistido String?
+  relatos                String?
+  dificuldades           String?
+  impactosOsc            String?
+  analiseTecnica         String?
+  fatoresAgravantes      String?
+  fatoresProtetivos      String?
+  recomendacoes          String?
+  planoInicial           String?
+
+  // ----- Conclusão -----
+  criticidadeFinal Criticidade?
+  statusCaso       StatusCaso?
+
+  // ----- Assinatura digital simples -----
+  /// Nome de quem assinou (quem confirmou a presença/relato).
+  assinanteNome    String?
+  /// Imagem da assinatura como data URL (image/png;base64,…).
+  assinaturaImagem String?
+  assinadoEm       DateTime?
+
+  // Auditoria padrão
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  visita     Visita             @relation(fields: [visitaId], references: [id])
+  tenant     OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+  documentos Documento[]
+
+  @@index([organizationId, criticidadeFinal])
+  @@index([organizationId, statusCaso])
+  @@map("relatorios_visita")
+}
+
+// -------- Plano de Ação e Acompanhamento ------------------------
+
+enum PlanoAcaoStatus {
+  RASCUNHO
+  ATIVO
+  EM_REVISAO
+  CONCLUIDO
+  CANCELADO
+}
+
+model PlanoAcao {
+  id             String @id @default(uuid())
+  organizationId String
+
+  // Vínculos. Assistido é obrigatório (caso); visita/solicitação
+  // são origem opcionais.
+  assistidoId   String
+  visitaId      String?
+  solicitacaoId String?
+
+  objetivo          String
+  problemaPrincipal String
+  /// Área/setor responsável (texto livre — ex.: "Social", "Pedagógico", "Saúde").
+  areaResponsavel   String?
+  prazo             DateTime?
+  indicadorSucesso  String?
+  status            PlanoAcaoStatus @default(RASCUNHO)
+  dataRevisao       DateTime?
+
+  /// Lista de externalUserIds responsáveis pelo plano (sem FK — referências à Central).
+  responsaveisExternalUserIds String[] @default([])
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant          OrganizationTenant    @relation(fields: [organizationId], references: [organizationId])
+  assistido       Assistido             @relation(fields: [assistidoId], references: [id])
+  visita          Visita?               @relation(fields: [visitaId], references: [id])
+  solicitacao     SolicitacaoVisita?    @relation(fields: [solicitacaoId], references: [id])
+  acoes           AcaoPlano[]
+  acompanhamentos AcompanhamentoPlano[]
+  documentos      Documento[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, status, prazo])
+  @@index([organizationId, assistidoId])
+  @@map("planos_acao")
+}
+
+model AcaoPlano {
+  id             String @id @default(uuid())
+  organizationId String
+  planoId        String
+
+  ordem                     Int       @default(0)
+  descricao                 String
+  /// Único responsável da ação (sem FK — referência à Central).
+  responsavelExternalUserId String?
+  prazo                     DateTime?
+  concluida                 Boolean   @default(false)
+  concluidaEm               DateTime?
+  observacoes               String?
+
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  plano PlanoAcao @relation(fields: [planoId], references: [id])
+
+  @@index([organizationId, planoId, ordem])
+  @@map("acoes_plano")
+}
+
+model AcompanhamentoPlano {
+  id             String @id @default(uuid())
+  organizationId String
+  planoId        String
+
+  evolucao            String
+  dificuldades        String?
+  proximosPassos      String?
+  necessitaNovaVisita Boolean @default(false)
+  encerraCaso         Boolean @default(false)
+
+  createdByExternalUserId String?
+  createdAt               DateTime @default(now())
+
+  plano PlanoAcao @relation(fields: [planoId], references: [id])
+
+  @@index([organizationId, planoId, createdAt])
+  @@map("acompanhamentos_plano")
+}
+
+// -------- Solicitação de Visita ---------------------------------
+
+enum SolicitacaoVisitaStatus {
+  RASCUNHO
+  ENVIADA_TRIAGEM
+  EM_TRIAGEM
+  APROVADA
+  REJEITADA
+  ENCAMINHADA
+  CONVERTIDA_VISITA
+}
+
+enum TriagemComplexidade {
+  BAIXA
+  MEDIA
+  ALTA
+  MUITO_ALTA
+}
+
+enum TriagemDecisao {
+  APROVAR_VISITA
+  DEVOLVER_COMPLEMENTACAO
+  REJEITAR
+  RECLASSIFICAR_PRIORIDADE
+  ENCAMINHAR_OUTRO_SETOR
+}
+
+enum FrequenciaFatoGerador {
+  UNICA
+  ESPORADICA
+  FREQUENTE
+  CONTINUA
+}
+
+model SolicitacaoVisita {
+  id             String                  @id @default(uuid())
+  organizationId String
+  status         SolicitacaoVisitaStatus @default(RASCUNHO)
+
+  // FKs (no mesmo tenant — validação cross-tenant feita no service).
+  assistidoId       String
+  programaId        String?
+  motivoPrincipalId String?
+  prioridadeId      String?
+
+  // Many-to-many implícito para motivos secundários (Prisma cria
+  // automaticamente a tabela _SolicitacaoMotivosSecundarios).
+  motivosSecundarios MotivoVisita[] @relation("SolicitacaoMotivosSecundarios")
+
+  // Conteúdo do pedido.
+  descricaoDetalhada          String
+  dataFatoGerador             DateTime              @db.Date
+  frequencia                  FrequenciaFatoGerador
+  acoesJaRealizadas           String?
+  riscoImediato               Boolean               @default(false)
+  necessidadeAvaliacaoTecnica Boolean               @default(false)
+  sugestaoPerfilVisitador     String?
+  observacoes                 String?
+
+  // Solicitante — sempre preenchido a partir do JWT (sem FK local).
+  solicitanteExternalUserId String
+
+  // Triador atual (quem assumiu). Sem FK local — referência à Central.
+  triadorExternalUserId String?
+
+  // Tracking de estado.
+  enviadaTriagemEm DateTime?
+  triadaEm         DateTime?
+  visitaId         String? // preenchido quando convertida em Visita
+
+  // Auditoria padrão.
+  createdByExternalUserId String?
+  updatedByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant          OrganizationTenant       @relation(fields: [organizationId], references: [organizationId])
+  assistido       Assistido                @relation(fields: [assistidoId], references: [id])
+  programa        Programa?                @relation(fields: [programaId], references: [id])
+  motivoPrincipal MotivoVisita?            @relation("SolicitacaoMotivoPrincipal", fields: [motivoPrincipalId], references: [id])
+  prioridade      Prioridade?              @relation(fields: [prioridadeId], references: [id])
+  visita          Visita?                  @relation(fields: [visitaId], references: [id])
+  anexos          SolicitacaoVisitaAnexo[]
+  triagens        Triagem[]
+  planosAcao      PlanoAcao[]
+  documentos      Documento[]
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, solicitanteExternalUserId, createdAt])
+  @@map("solicitacoes_visita")
+}
+
+model SolicitacaoVisitaAnexo {
+  id             String @id @default(uuid())
+  organizationId String
+  solicitacaoId  String
+
+  nome     String
+  mimeType String
+  tamanho  Int
+  url      String
+
+  createdByExternalUserId String?
+  createdAt               DateTime  @default(now())
+  deletedAt               DateTime?
+
+  solicitacao SolicitacaoVisita @relation(fields: [solicitacaoId], references: [id])
+
+  @@index([organizationId, solicitacaoId, deletedAt])
+  @@map("solicitacao_visita_anexos")
+}
+
+model Triagem {
+  id             String @id @default(uuid())
+  organizationId String
+  solicitacaoId  String
+
+  /// Quem decidiu — sempre vem do JWT.
+  triadorExternalUserId String
+
+  // Análise técnica
+  complexidade                TriagemComplexidade
+  tipoAtendimentoIndicado     String?
+  necessidadeDuplaVisita      Boolean             @default(false)
+  necessidadePsicologo        Boolean             @default(false)
+  necessidadeAssistenteSocial Boolean             @default(false)
+  dataLimiteRecomendada       DateTime?           @db.Date
+  justificativaTecnica        String
+
+  // Decisão e referências condicionais
+  decisao                    TriagemDecisao
+  prioridadeReclassificadaId String?
+  setorEncaminhamentoId      String?
+
+  // Snapshot de transição (útil para histórico mesmo se a Solicitação mudar de novo)
+  statusAnterior SolicitacaoVisitaStatus
+  statusNovo     SolicitacaoVisitaStatus
+
+  createdByExternalUserId String?
+  createdAt               DateTime @default(now())
+
+  tenant                   OrganizationTenant  @relation(fields: [organizationId], references: [organizationId])
+  solicitacao              SolicitacaoVisita   @relation(fields: [solicitacaoId], references: [id])
+  prioridadeReclassificada Prioridade?         @relation("TriagemPrioridadeReclassificada", fields: [prioridadeReclassificadaId], references: [id])
+  setorEncaminhamento      TipoEncaminhamento? @relation("TriagemSetorEncaminhamento", fields: [setorEncaminhamentoId], references: [id])
+
+  @@index([organizationId, solicitacaoId, createdAt])
+  @@index([organizationId, triadorExternalUserId, createdAt])
+  @@map("triagens")
+}
+
+// -------- Integração e auditoria --------------------------------
+
+model WebhookDelivery {
+  id             String   @id @default(uuid())
+  event          String
+  licenseId      String?
+  organizationId String?
+  payloadHash    String
+  receivedAt     DateTime @default(now())
+  status         String
+  errorMessage   String?
+
+  @@unique([event, payloadHash])
+  @@index([organizationId, receivedAt])
+  @@map("webhook_deliveries")
+}
+
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  occurredAt     DateTime @default(now())
+  organizationId String?
+  externalUserId String?
+  action         String
+  entity         String?
+  entityId       String?
+  meta           Json?
+  ip             String?
+  userAgent      String?
+
+  @@index([organizationId, occurredAt])
+  @@index([externalUserId, occurredAt])
+  @@map("audit_logs")
+}
+
+// -------- Documentos e anexos (CLAUDE.md §2 / §4) ----------------
+
+enum NivelSigilo {
+  /// Visível a qualquer usuário autenticado da OSC.
+  PUBLICO
+  /// Visível ao uploader, ORG_ADMIN e SUPER_ADMIN.
+  RESTRITO
+  /// Visível apenas ao uploader e SUPER_ADMIN.
+  CONFIDENCIAL
+}
+
+enum TipoDocumento {
+  IDENTIDADE
+  COMPROVANTE_RESIDENCIA
+  LAUDO_MEDICO
+  LAUDO_PSICOLOGICO
+  LAUDO_ASSISTENCIAL
+  RELATORIO_TECNICO
+  PARECER_JURIDICO
+  PRONTUARIO
+  AUTORIZACAO
+  TERMO_CONSENTIMENTO
+  FOTO
+  OUTRO
+}
+
+/**
+ * Documento/anexo unificado. Vinculado a EXATAMENTE UMA entidade
+ * (assistido OU solicitação OU visita OU relatório OU plano de ação).
+ * A regra de "exatamente um" é validada no service.
+ */
+model Documento {
+  id             String @id @default(uuid())
+  organizationId String
+
+  tipo   TipoDocumento @default(OUTRO)
+  sigilo NivelSigilo   @default(RESTRITO)
+
+  /// Título exibido na UI.
+  nome      String
+  /// Nome do arquivo original (preservado para download).
+  fileName  String
+  mimeType  String
+  /// Em bytes.
+  tamanho   Int
+  /// URL/path interno onde o conteúdo está armazenado.
+  /// (Pipeline real de upload virá em bloco específico — hoje placeholder.)
+  url       String
+  /// SHA-256 opcional para verificação de integridade futura.
+  hash      String?
+  descricao String?
+
+  // ----- Vínculo: exatamente UM destes deve estar preenchido -----
+  assistidoId   String?
+  solicitacaoId String?
+  visitaId      String?
+  relatorioId   String?
+  planoAcaoId   String?
+
+  // ----- Auditoria -----
+  /// Uploader — sempre preenchido a partir do JWT.
+  uploadedByExternalUserId String
+  uploadedAt               DateTime @default(now())
+
+  updatedByExternalUserId String?
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant      OrganizationTenant @relation(fields: [organizationId], references: [organizationId])
+  assistido   Assistido?         @relation(fields: [assistidoId], references: [id])
+  solicitacao SolicitacaoVisita? @relation(fields: [solicitacaoId], references: [id])
+  visita      Visita?            @relation(fields: [visitaId], references: [id])
+  relatorio   RelatorioVisita?   @relation(fields: [relatorioId], references: [id])
+  planoAcao   PlanoAcao?         @relation(fields: [planoAcaoId], references: [id])
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, assistidoId, deletedAt])
+  @@index([organizationId, solicitacaoId, deletedAt])
+  @@index([organizationId, visitaId, deletedAt])
+  @@index([organizationId, relatorioId, deletedAt])
+  @@index([organizationId, planoAcaoId, deletedAt])
+  @@index([organizationId, sigilo, tipo])
+  @@map("documentos")
+}
