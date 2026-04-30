@@ -5,7 +5,7 @@ import { AuditSkip } from '../../common/audit/audit-action.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
 
 @Controller('audit')
-@Roles('ORG_ADMIN', 'SUPER_ADMIN')
+@Roles('audit.manage')
 export class AuditController {
   constructor(private readonly service: AuditReadService) {}
 

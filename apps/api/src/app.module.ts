@@ -6,8 +6,6 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './common/auth/auth.module';
-import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
-import { RolesGuard } from './common/auth/roles.guard';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { TenantGuard } from './common/tenant/tenant.guard';
 import { PrismaModule } from './prisma/prisma.module';
@@ -108,9 +106,8 @@ import { AuditReadModule } from './modules/audit/audit.module';
     AuditReadModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // CentralAuthGuard + ActionsGuard são registrados em AuthModule via APP_GUARD.
     { provide: APP_GUARD, useClass: TenantGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],

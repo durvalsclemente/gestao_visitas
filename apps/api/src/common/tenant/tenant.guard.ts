@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../auth/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { CentralUser } from '../auth/central-user.types';
+import type { OSCToken } from '@osc/auth-core';
 
 /**
  * Garante que a organização do usuário possui um tenant ativo neste app.
@@ -22,11 +22,18 @@ export class TenantGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const user = context.switchToHttp().getRequest().user as CentralUser | undefined;
+    const user = context.switchToHttp().getRequest().user as OSCToken | undefined;
     if (!user) throw new ForbiddenException('Sem usuário autenticado');
 
+    const orgId = user.org?.id;
+    if (!orgId) {
+      // super admin pode não ter org ativa; libera (ele não é tenant deste app)
+      if (user.is_super_admin) return true;
+      throw new ForbiddenException('Token sem organização ativa');
+    }
+
     const tenant = await this.prisma.organizationTenant.findUnique({
-      where: { organizationId: user.organizationId },
+      where: { organizationId: orgId },
       select: { active: true },
     });
 

@@ -44,19 +44,19 @@ export class PrioridadesController {
     return this.helper.findOne(this.prisma.prioridade, id, LABEL);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('priorities.manage')
   @Post()
   create(@Body() dto: CreatePrioridadeDto) {
     return this.helper.create(this.prisma.prioridade, dto, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('priorities.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdatePrioridadeDto) {
     return this.helper.update(this.prisma.prioridade, id, dto, LABEL, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('priorities.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {

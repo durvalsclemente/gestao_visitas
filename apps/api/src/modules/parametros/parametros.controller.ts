@@ -37,19 +37,19 @@ export class ParametrosController {
     return this.service.findOne(id);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('parameters.manage')
   @Post()
   create(@Body() dto: CreateParametroDto) {
     return this.service.create(dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('parameters.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateParametroDto) {
     return this.service.update(id, dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('parameters.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {

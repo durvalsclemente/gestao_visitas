@@ -41,13 +41,13 @@ export class VisitasController {
   }
 
   /** Designa visita a partir de uma solicitação APROVADA. */
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visits.manage')
   @Post('designar')
   designar(@Body() dto: DesignarVisitaDto) {
     return this.service.designar(dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visits.manage')
   @Patch(':id/reagendar')
   reagendar(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -56,7 +56,7 @@ export class VisitasController {
     return this.service.reagendar(id, dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visits.manage')
   @Patch(':id/cancelar')
   cancelar(
     @Param('id', new ParseUUIDPipe()) id: string,

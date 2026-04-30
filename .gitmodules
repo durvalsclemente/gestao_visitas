@@ -1,0 +1,4 @@
+[submodule ".central-shared"]
+	path = .central-shared
+	url = git@github.com:durvalsclemente/Central_Acessos.git
+	branch = feat/auth-refactor-central

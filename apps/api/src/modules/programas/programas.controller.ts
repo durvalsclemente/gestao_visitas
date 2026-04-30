@@ -45,19 +45,19 @@ export class ProgramasController {
     return this.helper.findOne(this.prisma.programa, id, LABEL);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('programs.manage')
   @Post()
   create(@Body() dto: CreateProgramaDto) {
     return this.helper.create(this.prisma.programa, dto, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('programs.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateProgramaDto) {
     return this.helper.update(this.prisma.programa, id, dto, LABEL, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('programs.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {

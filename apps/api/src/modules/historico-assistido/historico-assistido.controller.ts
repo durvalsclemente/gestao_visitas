@@ -29,13 +29,13 @@ export class HistoricoAssistidoController {
     return this.service.listMatriculas(id);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('history.manage')
   @Post('matriculas')
   createMatricula(@Body() dto: CreateMatriculaDto) {
     return this.service.createMatricula(dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('history.manage')
   @Patch('matriculas/:id')
   updateMatricula(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -44,7 +44,7 @@ export class HistoricoAssistidoController {
     return this.service.updateMatricula(id, dto);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('history.manage')
   @Delete('matriculas/:id')
   @HttpCode(204)
   async removeMatricula(@Param('id', new ParseUUIDPipe()) id: string) {

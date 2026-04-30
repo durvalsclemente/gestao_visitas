@@ -23,7 +23,12 @@
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@osc/auth-core": ["./node_modules/@osc/auth-core/src/index.ts"],
+      "@osc/auth-core/*": ["./node_modules/@osc/auth-core/src/*"],
+      "@osc/auth-fastify": ["./node_modules/@osc/auth-fastify/src/index.ts"],
+      "@osc/auth-fastify/*": ["./node_modules/@osc/auth-fastify/src/*"],
+      "jose": ["./node_modules/jose"]
     }
   },
   "include": ["src/**/*.ts"],

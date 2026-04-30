@@ -28,13 +28,13 @@ export class TriagemController {
   }
 
   /** Mutação: apenas coordenadores e administradores. */
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('triage.manage')
   @Post('solicitacao/:solicitacaoId/assumir')
   assumir(@Param('solicitacaoId', new ParseUUIDPipe()) solicitacaoId: string) {
     return this.service.assumir(solicitacaoId);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('triage.manage')
   @Post('solicitacao/:solicitacaoId/decidir')
   decidir(
     @Param('solicitacaoId', new ParseUUIDPipe()) solicitacaoId: string,

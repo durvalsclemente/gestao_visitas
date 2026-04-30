@@ -1,18 +1,19 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import type { CentralUser } from '../auth/central-user.types';
+import type { OSCToken } from '@osc/auth-core';
 import { tenantStorage } from './tenant.context';
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const user = context.switchToHttp().getRequest().user as CentralUser | undefined;
-    if (!user?.organizationId) {
+    const user = context.switchToHttp().getRequest().user as OSCToken | undefined;
+    const organizationId = user?.org?.id;
+    if (!organizationId) {
       return next.handle();
     }
     return new Observable((subscriber) => {
       tenantStorage.run(
-        { organizationId: user.organizationId, externalUserId: user.externalUserId },
+        { organizationId, externalUserId: user!.sub },
         () => {
           next
             .handle()

@@ -43,19 +43,19 @@ export class MotivosVisitaController {
     return this.helper.findOne(this.prisma.motivoVisita, id, LABEL);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visit-motives.manage')
   @Post()
   create(@Body() dto: CreateMotivoVisitaDto) {
     return this.helper.create(this.prisma.motivoVisita, dto, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visit-motives.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateMotivoVisitaDto) {
     return this.helper.update(this.prisma.motivoVisita, id, dto, LABEL, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('visit-motives.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {

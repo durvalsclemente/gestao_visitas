@@ -41,19 +41,19 @@ export class StatusController {
     return this.helper.findOne(this.prisma.status, id, LABEL);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('status.manage')
   @Post()
   create(@Body() dto: CreateStatusDto) {
     return this.helper.create(this.prisma.status, dto, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('status.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateStatusDto) {
     return this.helper.update(this.prisma.status, id, dto, LABEL, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('status.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {

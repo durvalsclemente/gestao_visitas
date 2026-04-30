@@ -43,19 +43,19 @@ export class TiposEncaminhamentoController {
     return this.helper.findOne(this.prisma.tipoEncaminhamento, id, LABEL);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('referral-types.manage')
   @Post()
   create(@Body() dto: CreateTipoEncaminhamentoDto) {
     return this.helper.create(this.prisma.tipoEncaminhamento, dto, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('referral-types.manage')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateTipoEncaminhamentoDto) {
     return this.helper.update(this.prisma.tipoEncaminhamento, id, dto, LABEL, CONFLICT);
   }
 
-  @Roles('ORG_ADMIN', 'SUPER_ADMIN')
+  @Roles('referral-types.manage')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
