@@ -100,7 +100,7 @@ smoke() {
   ADMIN_PASS=$(kubectl -n central-acessos get secret central-secret -o jsonpath='{.data.SEED_SUPER_ADMIN_PASSWORD}' | base64 -d)
   CACC=$(curl -sk --resolve api.auth.osc.app.br:443:127.0.0.1 -X POST https://api.auth.osc.app.br/api/v1/auth/login \
     -H 'Content-Type: application/json' \
-    -d "{\"email\":\"durvalsclemente@gmail.com\",\"password\":\"$ADMIN_PASS\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
+    -d "{\"email\":\"durvals.clemente@gmail.com\",\"password\":\"$ADMIN_PASS\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
   ISSUE=$(curl -sk --resolve api.auth.osc.app.br:443:127.0.0.1 -X POST https://api.auth.osc.app.br/api/v1/oauth/authorize/issue-code \
     -H "Authorization: Bearer $CACC" -H 'Content-Type: application/json' \
     -d '{"response_type":"code","client_id":"gestao-visitas","redirect_uri":"https://visitas.osc.app.br/auth/callback","state":"x","code_challenge":"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM","code_challenge_method":"S256"}')
