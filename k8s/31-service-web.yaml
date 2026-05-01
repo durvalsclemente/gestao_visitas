@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Service
+metadata: { name: visitas-web, namespace: visitas }
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: visitas-web }
+  ports: [{ name: http, port: 80, targetPort: 80 }]

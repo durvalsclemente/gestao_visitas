@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: visitas-api
+  namespace: visitas
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [api.visitas.osc.app.br]
+      secretName: api-visitas-osc-app-br-tls
+  rules:
+    - host: api.visitas.osc.app.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: visitas-api, port: { number: 80 } }

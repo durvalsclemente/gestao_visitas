@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: visitas-api
+  namespace: visitas
+  labels: { app.kubernetes.io/name: visitas-api }
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: visitas-api }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: visitas-api }
+    spec:
+      containers:
+        - name: api
+          image: localhost:32000/visitas-api:CHANGE_ME
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 3001, name: http }]
+          envFrom:
+            - configMapRef: { name: visitas-config }
+            - secretRef:    { name: visitas-secret }
+          env:
+            - name: TOKEN_ENCRYPTION_ACTIVE_KID
+              valueFrom: { secretKeyRef: { name: osc-token-encryption-key, key: kid } }
+            - name: _OSC_TOKEN_KID
+              valueFrom: { secretKeyRef: { name: osc-token-encryption-key, key: kid } }
+            - name: _OSC_TOKEN_KEY
+              valueFrom: { secretKeyRef: { name: osc-token-encryption-key, key: key } }
+          command: [sh, -c]
+          args:
+            - |
+              export TOKEN_ENCRYPTION_KEYS="${_OSC_TOKEN_KID}:${_OSC_TOKEN_KEY}"
+              if [ -f dist/main.js ]; then exec node dist/main.js; else exec node dist/src/main.js; fi
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "1000m", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /health, port: 3001 }
+            initialDelaySeconds: 8
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 3001 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
