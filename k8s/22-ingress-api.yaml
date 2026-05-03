@@ -6,16 +6,18 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Strip do /api antes de passar pro backend (controllers usam paths nus).
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: [api.visitas.osc.app.br]
-      secretName: api-visitas-osc-app-br-tls
+    - hosts: [visitas.osc.app.br]
+      secretName: visitas-osc-app-br-tls
   rules:
-    - host: api.visitas.osc.app.br
+    - host: visitas.osc.app.br
       http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: visitas-api, port: { number: 80 } }
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: visitas-api, port: { number: 80 } } }

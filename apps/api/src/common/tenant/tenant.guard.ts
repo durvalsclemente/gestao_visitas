@@ -23,7 +23,9 @@ export class TenantGuard implements CanActivate {
     if (isPublic) return true;
 
     const user = context.switchToHttp().getRequest().user as OSCToken | undefined;
-    if (!user) throw new ForbiddenException('Sem usuário autenticado');
+    // Se ainda não há user, deixa o CentralAuthGuard tratar (vai retornar 401).
+    // Não erramos aqui porque a ordem dos APP_GUARD não é determinística.
+    if (!user) return true;
 
     const orgId = user.org?.id;
     if (!orgId) {

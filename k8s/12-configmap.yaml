@@ -7,17 +7,16 @@ data:
   NODE_ENV: "production"
   PORT: "3001"
 
-  # Central — endpoints públicos
-  CENTRAL_JWKS_URI: "https://api.auth.osc.app.br/.well-known/jwks.json"
-  CENTRAL_ISSUER:   "https://api.auth.osc.app.br"
+  # Central — host único auth.osc.app.br (path-routed: /api/v1, /.well-known)
+  CENTRAL_JWKS_URI: "https://auth.osc.app.br/.well-known/jwks.json"
+  CENTRAL_ISSUER:   "https://auth.osc.app.br"
   CENTRAL_AUDIENCE: "gestao-visitas"
   CENTRAL_URL:      "https://auth.osc.app.br"
-  # Compat com o env.validation legacy (que ainda exige esses claims)
-  # HS256 só para satisfazer env.validation (legacy). O validador real usa CENTRAL_JWKS_URI.
+  # Compat com env.validation legacy (RS256 real é via JWKS_URI; HS256 satisfaz refine)
   CENTRAL_JWT_ALG:      "HS256"
-  CENTRAL_JWT_ISSUER:   "https://api.auth.osc.app.br"
+  CENTRAL_JWT_ISSUER:   "https://auth.osc.app.br"
   CENTRAL_JWT_AUDIENCE: "gestao-visitas"
-  # Webhook receiver auth (ainda inbound do Central legacy — header API_KEY)
+  # Webhook receiver auth (header API_KEY enviado pela Central)
   CENTRAL_WEBHOOK_AUTH_TYPE:   "API_KEY"
   CENTRAL_WEBHOOK_AUTH_HEADER: "X-OSC-Signature"
 
