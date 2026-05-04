@@ -139,16 +139,38 @@ export function popPostLoginPath(): string {
 }
 
 /**
+ * Varre todo storage do navegador NESTE domínio: localStorage, sessionStorage
+ * e cookies legíveis por JS. Cookies HttpOnly só caem via Set-Cookie do
+ * backend (não usado aqui — `withCredentials: false`).
+ */
+function nukeBrowserStorage(): void {
+  try { localStorage.clear(); } catch { /* private mode */ }
+  try { sessionStorage.clear(); } catch { /* idem */ }
+  const host = window.location.hostname;
+  const cookies = document.cookie ? document.cookie.split(';') : [];
+  const expire = 'expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  for (const raw of cookies) {
+    const eq = raw.indexOf('=');
+    const name = (eq > -1 ? raw.substr(0, eq) : raw).trim();
+    if (!name) continue;
+    document.cookie = `${name}=; ${expire}; path=/`;
+    document.cookie = `${name}=; ${expire}; path=/; domain=${host}`;
+    document.cookie = `${name}=; ${expire}; path=/; domain=.${host}`;
+  }
+}
+
+/**
  * Logout SSO — encerra a sessão Central junto com a local.
- * Pega o refresh_token armazenado, limpa todo o storage local e redireciona
- * para `${CENTRAL}/api/v1/oauth/end_session`. A Central revoga a session do
- * refresh, depois manda o navegador pra `/logout` (frontend Central) que
- * limpa o tokenStorage HS256 e devolve o user para `post_logout_redirect_uri`.
+ * Lê o refresh_token, varre TODO o storage deste domínio, e redireciona
+ * para `${CENTRAL}/api/v1/oauth/end_session`. A Central revoga todas as
+ * sessions desse user (logout-everywhere) e devolve o navegador para
+ * `/logout` da Central, que limpa o storage de auth.osc.app.br e manda
+ * o user de volta pra `post_logout_redirect_uri`.
  */
 export function logoutAndRedirect(): void {
   const refreshToken = sessionStorage.getItem('gv.refresh');
 
-  sessionStorage.clear();
+  nukeBrowserStorage();
 
   const params = new URLSearchParams({
     post_logout_redirect_uri: `${window.location.origin}/`,
