@@ -6,6 +6,7 @@ import {
   isExpired,
   type CentralJwtClaims,
 } from './token';
+import { logoutAndRedirect } from './oauth';
 
 interface AuthState {
   token: string | null;
@@ -34,8 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: state.user,
     isAuthenticated: !!state.token && !!state.user,
     signOut: () => {
+      // Single-logout: revoga a sessão na Central e limpa local.
+      // logoutAndRedirect já faz sessionStorage.clear() antes de sair.
       clearToken();
       setState({ token: null, user: null });
+      logoutAndRedirect();
     },
   };
 

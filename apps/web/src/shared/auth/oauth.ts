@@ -137,3 +137,27 @@ export function popPostLoginPath(): string {
   sessionStorage.removeItem(POST_LOGIN_KEY);
   return path && path.startsWith('/') ? path : '/';
 }
+
+/**
+ * Logout SSO — encerra a sessão Central junto com a local.
+ * Pega o refresh_token armazenado, limpa todo o storage local e redireciona
+ * para `${CENTRAL}/api/v1/oauth/end_session`. A Central revoga a session do
+ * refresh, depois manda o navegador pra `/logout` (frontend Central) que
+ * limpa o tokenStorage HS256 e devolve o user para `post_logout_redirect_uri`.
+ */
+export function logoutAndRedirect(): void {
+  const refreshToken = sessionStorage.getItem('gv.refresh');
+
+  sessionStorage.clear();
+
+  const params = new URLSearchParams({
+    post_logout_redirect_uri: `${window.location.origin}/`,
+  });
+  if (refreshToken) params.set('refresh_token', refreshToken);
+
+  if (!CENTRAL_URL) {
+    window.location.replace('/');
+    return;
+  }
+  window.location.replace(`${CENTRAL_URL}/api/v1/oauth/end_session?${params.toString()}`);
+}
