@@ -1,8 +1,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
-  captureToken,
   clearToken,
-  decodeClaims,
+  getStoredClaims,
+  getStoredToken,
   isExpired,
   type CentralJwtClaims,
 } from './token';
@@ -18,11 +18,10 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initial = useMemo(() => {
-    const token = captureToken();
-    if (!token) return { token: null, user: null };
-    const claims = decodeClaims(token);
-    if (!claims || isExpired(claims)) {
-      clearToken();
+    const token = getStoredToken();
+    const claims = getStoredClaims();
+    if (!token || !claims || isExpired(claims)) {
+      if (token || claims) clearToken();
       return { token: null, user: null };
     }
     return { token, user: claims };

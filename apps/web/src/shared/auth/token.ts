@@ -1,81 +1,81 @@
-import { jwtDecode } from 'jwt-decode';
+import type { CentralUserInfo } from './oauth';
 
-const STORAGE_KEY = 'gv.jwt';
+const TOKEN_KEY = 'gv.jwt';
+const REFRESH_KEY = 'gv.refresh';
+const CLAIMS_KEY = 'gv.claims';
 
 export type CentralRole = 'SUPER_ADMIN' | 'ORG_ADMIN' | 'ORG_USER';
 
 /**
- * Forma "crua" do payload do JWT (campos como vêm da Central).
- */
-interface CentralJwtPayload {
-  sub: string;
-  email: string;
-  role: CentralRole;
-  organizationId: string;
-  exp: number;
-  iat: number;
-}
-
-/**
- * Projeção usada no frontend. `centralRole` deixa explícito que NÃO é
- * uma role local — vem direto do JWT da Central.
+ * Projeção usada no frontend. NÃO é uma role local — é derivada do
+ * `is_super_admin` + role principal vindos da Central via `/oauth/userinfo`.
  */
 export interface CentralJwtClaims {
   externalUserId: string;
   email: string;
+  name?: string;
   centralRole: CentralRole;
-  organizationId: string;
+  organizationId: string | null;
+  isSuperAdmin: boolean;
+  roles: string[];
+  actions: string[];
   exp: number;
   iat: number;
 }
 
-/**
- * Captura o JWT vindo da Central:
- * 1) Procura na query string (?token=...) e remove da URL.
- * 2) Senão, lê do sessionStorage (mantém na sessão do tab).
- *
- * NÃO emitimos token aqui — apenas consumimos o que a Central enviou.
- */
-export function captureToken(): string | null {
-  const url = new URL(window.location.href);
-  const fromQuery = url.searchParams.get('token');
-  if (fromQuery) {
-    sessionStorage.setItem(STORAGE_KEY, fromQuery);
-    url.searchParams.delete('token');
-    window.history.replaceState({}, '', url.toString());
-    return fromQuery;
-  }
-  return sessionStorage.getItem(STORAGE_KEY);
+export function setSession(token: string, refreshToken: string | undefined, claims: CentralJwtClaims): void {
+  sessionStorage.setItem(TOKEN_KEY, token);
+  if (refreshToken) sessionStorage.setItem(REFRESH_KEY, refreshToken);
+  sessionStorage.setItem(CLAIMS_KEY, JSON.stringify(claims));
 }
 
 export function getStoredToken(): string | null {
-  return sessionStorage.getItem(STORAGE_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
-export function clearToken(): void {
-  sessionStorage.removeItem(STORAGE_KEY);
-}
-
-export function decodeClaims(token: string): CentralJwtClaims | null {
+export function getStoredClaims(): CentralJwtClaims | null {
+  const raw = sessionStorage.getItem(CLAIMS_KEY);
+  if (!raw) return null;
   try {
-    const payload = jwtDecode<CentralJwtPayload>(token);
-    if (!payload?.sub || !payload?.email || !payload?.role || !payload?.organizationId) {
-      return null;
-    }
-    return {
-      externalUserId: payload.sub,
-      email: payload.email,
-      centralRole: payload.role,
-      organizationId: payload.organizationId,
-      exp: payload.exp,
-      iat: payload.iat,
-    };
+    return JSON.parse(raw) as CentralJwtClaims;
   } catch {
     return null;
   }
 }
 
+export function clearToken(): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_KEY);
+  sessionStorage.removeItem(CLAIMS_KEY);
+}
+
 export function isExpired(claims: CentralJwtClaims, skewSeconds = 30): boolean {
+  if (!claims.exp) return false;
   const nowSec = Math.floor(Date.now() / 1000);
   return claims.exp <= nowSec + skewSeconds;
+}
+
+/**
+ * Converte a resposta de `/oauth/userinfo` no shape usado pelo frontend.
+ * A Central devolve `roles: [{id, code}]` e `is_super_admin: bool`.
+ */
+export function claimsFromUserInfo(info: CentralUserInfo): CentralJwtClaims {
+  const roleCodes = (info.roles ?? []).map((r) => r.code);
+  const centralRole: CentralRole = info.is_super_admin
+    ? 'SUPER_ADMIN'
+    : roleCodes.some((c) => /admin/i.test(c))
+      ? 'ORG_ADMIN'
+      : 'ORG_USER';
+  return {
+    externalUserId: info.sub,
+    email: info.email,
+    name: info.name,
+    centralRole,
+    organizationId: info.org?.id ?? null,
+    isSuperAdmin: !!info.is_super_admin,
+    roles: roleCodes,
+    actions: info.actions ?? [],
+    exp: typeof info.exp === 'number' ? info.exp : 0,
+    iat: typeof info.iat === 'number' ? info.iat : 0,
+  };
 }

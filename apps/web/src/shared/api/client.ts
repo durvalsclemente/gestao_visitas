@@ -1,7 +1,6 @@
 import axios from 'axios';
+import { redirectToCentralAuthorize } from '../auth/oauth';
 import { clearToken, getStoredToken } from '../auth/token';
-
-const CENTRAL_URL = import.meta.env.VITE_CENTRAL_URL ?? '';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
@@ -21,10 +20,7 @@ api.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 401) {
       clearToken();
-      if (CENTRAL_URL) {
-        const back = encodeURIComponent(window.location.href);
-        window.location.replace(`${CENTRAL_URL}/login?redirect=${back}`);
-      }
+      void redirectToCentralAuthorize();
     }
     return Promise.reject(error);
   },

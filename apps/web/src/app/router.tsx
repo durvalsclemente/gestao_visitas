@@ -25,6 +25,7 @@ import { SolicitacaoFormPage } from '../features/solicitacoes-visita/Solicitacao
 import { TriagemListPage } from '../features/triagem/TriagemListPage';
 import { TriagemDecisionPage } from '../features/triagem/TriagemDecisionPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { AuthCallbackPage } from '../pages/AuthCallbackPage';
 
 const wrap = (el: React.ReactElement) => (
   <ProtectedRoute>
@@ -33,6 +34,8 @@ const wrap = (el: React.ReactElement) => (
 );
 
 const router = createBrowserRouter([
+  { path: '/auth/callback', element: <AuthCallbackPage /> },
+
   { path: '/', element: wrap(<DashboardPage />) },
 
   { path: '/agenda', element: wrap(<AgendaPage />) },
