@@ -2,6 +2,7 @@
 # Build: contexto = raiz do repo (precisa de apps/api + .central-shared/shared/packages/auth-{core,nest})
 
 FROM node:20-slim AS builder
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 
@@ -9,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 WORKDIR /app/.central-shared/shared/packages/auth-core
 COPY .central-shared/shared/packages/auth-core/package.json .central-shared/shared/packages/auth-core/tsconfig.build.json ./
 COPY .central-shared/shared/packages/auth-core/src ./src
-RUN npm install --no-audit --no-fund jose typescript @types/node 2>&1 | tail -3 \
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist jose typescript @types/node 2>&1 | tail -3 \
  && npx tsc -p tsconfig.build.json \
  && ls dist/index.js
 
@@ -20,9 +21,9 @@ COPY .central-shared/shared/packages/auth-nest/src ./src
 
 # 3) API — instala deps (@nestjs/*, prisma, etc.)
 WORKDIR /app/apps/api
-COPY apps/api/package.json apps/api/package-lock.json* ./
+COPY apps/api/package.json apps/api/./
 COPY pnpm-lock.yaml /app/pnpm-lock.yaml
-RUN npm install --no-audit --no-fund
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
 # 4) Compila auth-nest reusando apps/api/node_modules (tem @nestjs/* + tsc)
 WORKDIR /app/.central-shared/shared/packages/auth-nest
@@ -50,7 +51,7 @@ RUN mkdir -p node_modules/@osc \
 
 RUN npx prisma generate
 # Build do API em transpile-only via swc — drift TS pre-existente (CLAUDE.md). Emite dist/*.js.
-RUN npm install --no-audit --no-fund --no-save --silent @swc/cli @swc/core >/dev/null 2>&1
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist --no-save --silent @swc/cli @swc/core >/dev/null 2>&1
 RUN cat > /tmp/.swcrc <<'EOF'
 {
   "jsc": {
@@ -66,12 +67,13 @@ RUN npx swc src --out-dir dist --strip-leading-paths --config-file /tmp/.swcrc \
 
 # ─── runtime ────────────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/apps/api
 ENV NODE_ENV=production
 
-COPY apps/api/package.json apps/api/package-lock.json* ./
-RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
+COPY apps/api/package.json apps/api/./
+RUN pnpm install --no-frozen-lockfile --prod --shamefully-hoist && npm cache clean --force
 
 COPY --from=builder /app/apps/api/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/apps/api/node_modules/@prisma ./node_modules/@prisma

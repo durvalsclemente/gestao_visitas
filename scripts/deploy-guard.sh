@@ -126,9 +126,23 @@ EOF
 
 # ─── helpers de prefixação ───────────────────────────────────────────────
 apply_prefix() {
-  # echo do nome prefixado: apply_prefix voluntarios → dev-voluntarios em dev,
-  # voluntarios em prod, hml-voluntarios em staging.
-  printf '%s%s\n' "${ENV_PREFIX}" "$1"
+  # Para nomes "normais" (ns, imagens): prefixa com ENV_PREFIX.
+  #   apply_prefix voluntarios → dev-voluntarios em dev
+  # Para hostnames *.osc.app.br: insere ".dev" / ".hml" como subdomínio antes
+  # do TLD, em vez de prefixar com "dev-". Isso casa com o wildcard DNS
+  # *.dev.osc.app.br que aponta pra esta máquina (147.93.177.80).
+  #   apply_prefix auth.osc.app.br      → auth.dev.osc.app.br      em dev
+  #   apply_prefix api.auth.osc.app.br  → api.auth.dev.osc.app.br  em dev
+  local name="$1"
+  if [[ "$name" == *.osc.app.br ]]; then
+    case "${ENV_NAME:-production}" in
+      production)  printf '%s\n' "$name" ;;
+      staging)     printf '%s.hml.osc.app.br\n' "${name%.osc.app.br}" ;;
+      development) printf '%s.dev.osc.app.br\n' "${name%.osc.app.br}" ;;
+    esac
+  else
+    printf '%s%s\n' "${ENV_PREFIX}" "$name"
+  fi
 }
 
 apply_db_suffix() {
@@ -159,11 +173,14 @@ render_manifest() {
   # Pegamos só linhas onde `name:` aparece sozinho no início da linha (top-level metadata).
   sed_args+=( -e "s|^\([[:space:]]*name:[[:space:]]*\)${ns_prod}[[:space:]]*\$|\1${ENV_PREFIX}${ns_prod}|g" )
 
-  # 2) hosts: trocar cada hostname prod por sua versão prefixada.
+  # 2) hosts: trocar cada hostname prod por sua versão do ambiente atual.
+  #    A transformação é delegada a apply_prefix (que insere ".dev" /".hml" como
+  #    subdomínio em vez de prefixar com "dev-" para hostnames .osc.app.br).
   #    IMPORTANTE: escapar os pontos no padrão (sed BRE trata `.` como "qualquer char",
   #    o que faria `auth.osc.app.br` casar com `auth-osc-app-br` dentro de secretNames).
   for h in "${hosts[@]}"; do
-    local h_prefixed="${ENV_PREFIX}${h}"
+    local h_prefixed
+    h_prefixed="$(apply_prefix "$h")"
     local h_escaped="$(echo "${h}" | sed 's/\./\\./g')"
     local tls_secret_prod="$(echo "${h}" | tr '.' '-')-tls"
     local tls_secret_new="$(echo "${h_prefixed}" | tr '.' '-')-tls"

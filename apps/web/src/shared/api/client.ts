@@ -19,8 +19,10 @@ api.interceptors.response.use(
   (r) => r,
   (error) => {
     if (error?.response?.status === 401) {
-      clearToken();
-      void redirectToCentralAuthorize();
+      if (!(window as any).isLoggingOut) {
+        clearToken();
+        void redirectToCentralAuthorize();
+      }
     }
     return Promise.reject(error);
   },

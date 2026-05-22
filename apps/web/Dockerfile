@@ -2,9 +2,10 @@
 # Build: contexto = raiz do repo (pega apps/web).
 
 FROM node:20-slim AS builder
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app/apps/web
-COPY apps/web/package.json apps/web/package-lock.json* ./
-RUN npm install --no-audit --no-fund
+COPY apps/web/package.json apps/web/./
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
 COPY apps/web ./
 

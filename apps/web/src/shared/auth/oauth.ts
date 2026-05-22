@@ -168,6 +168,7 @@ function nukeBrowserStorage(): void {
  * o user de volta pra `post_logout_redirect_uri`.
  */
 export function logoutAndRedirect(): void {
+  (window as any).isLoggingOut = true;
   const refreshToken = sessionStorage.getItem('gv.refresh');
 
   nukeBrowserStorage();
