@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { AppBar, Box, IconButton, Toolbar, Tooltip, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { OrgSwitcher, useCentralOrgs } from '@osc/ui-master';
 import { useAuth } from '../auth/auth.context';
 import { SIDEBAR_WIDTH } from './AppSidebar';
 
@@ -10,7 +12,20 @@ interface AppTopbarProps {
 }
 
 export function AppTopbar({ sidebarOpen, onToggleSidebar }: AppTopbarProps) {
-  const { user, signOut } = useAuth();
+  const { user, token, signOut } = useAuth();
+
+  const centralClient = useMemo(
+    () => ({
+      baseUrl: `${(import.meta.env.VITE_CENTRAL_URL ?? '').replace(/\/$/, '')}/api/v1`,
+      getToken: () => token,
+    }),
+    [token],
+  );
+  const { orgs, loading, switchOrg } = useCentralOrgs(centralClient);
+  const currentOrg = user?.organizationId
+    ? orgs.find((o) => o.id === user.organizationId) ?? { id: user.organizationId, name: '' }
+    : null;
+  const isMaster = !!user?.isSuperAdmin;
 
   return (
     <AppBar
@@ -38,9 +53,20 @@ export function AppTopbar({ sidebarOpen, onToggleSidebar }: AppTopbarProps) {
           </IconButton>
         </Tooltip>
 
-        <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" component="h1" sx={{ fontWeight: 600 }}>
           Gestão de Visitas
         </Typography>
+
+        <Box sx={{ mx: 2, opacity: 0.5 }}>•</Box>
+        <OrgSwitcher
+          current={currentOrg}
+          options={orgs}
+          loading={loading}
+          isMaster={isMaster}
+          onSwitch={switchOrg}
+        />
+
+        <Box sx={{ flexGrow: 1 }} />
 
         {user && (
           <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', mr: 2 }}>
