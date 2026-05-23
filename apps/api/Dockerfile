@@ -73,12 +73,12 @@ WORKDIR /app/apps/api
 ENV NODE_ENV=production
 
 COPY apps/api/package.json ./
-RUN pnpm install --no-frozen-lockfile --prod --shamefully-hoist && npm cache clean --force
-
-COPY --from=builder /app/apps/api/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/apps/api/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/prisma ./prisma
+RUN pnpm install --no-frozen-lockfile --prod --shamefully-hoist \
+ && npx prisma generate \
+ && npm cache clean --force
+
+COPY --from=builder /app/apps/api/dist ./dist
 
 # Shared lib compilada (auth-core + auth-nest com dist/) + symlinks
 COPY --from=builder /app/.central-shared/shared/packages/auth-core/dist /app/.central-shared/shared/packages/auth-core/dist
