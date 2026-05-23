@@ -9,7 +9,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json ./
 COPY .central-shared ./.central-shared
 COPY apps/web/package.json ./apps/web/
-RUN pnpm install --no-frozen-lockfile --shamefully-hoist
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile --shamefully-hoist
 
 # Compila auth-core/auth-nest dist (main aponta lá)
 RUN pnpm add -w --save-dev typescript@5.6.2 @types/node@20 \

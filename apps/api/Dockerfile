@@ -23,7 +23,7 @@ COPY .central-shared/shared/packages/auth-nest/src ./src
 WORKDIR /app/apps/api
 COPY apps/api/package.json ./
 COPY pnpm-lock.yaml /app/pnpm-lock.yaml
-RUN pnpm install --no-frozen-lockfile --shamefully-hoist
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile --shamefully-hoist
 
 # 4) Compila auth-nest reusando apps/api/node_modules (tem @nestjs/* + tsc)
 WORKDIR /app/.central-shared/shared/packages/auth-nest
