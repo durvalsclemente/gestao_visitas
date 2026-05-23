@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 WORKDIR /app/.central-shared/shared/packages/auth-core
 COPY .central-shared/shared/packages/auth-core/package.json .central-shared/shared/packages/auth-core/tsconfig.build.json ./
 COPY .central-shared/shared/packages/auth-core/src ./src
-RUN pnpm install --no-frozen-lockfile --shamefully-hoist jose typescript @types/node 2>&1 | tail -3 \
+RUN pnpm add --save-prod=false jose typescript @types/node 2>&1 | tail -3 \
  && npx tsc -p tsconfig.build.json \
  && ls dist/index.js
 
