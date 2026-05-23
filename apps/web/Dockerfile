@@ -4,7 +4,7 @@
 FROM node:20-slim AS builder
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app/apps/web
-COPY apps/web/package.json apps/web/./
+COPY apps/web/package.json ./
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
 COPY apps/web ./

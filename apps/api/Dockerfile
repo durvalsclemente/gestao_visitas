@@ -21,7 +21,7 @@ COPY .central-shared/shared/packages/auth-nest/src ./src
 
 # 3) API — instala deps (@nestjs/*, prisma, etc.)
 WORKDIR /app/apps/api
-COPY apps/api/package.json apps/api/./
+COPY apps/api/package.json ./
 COPY pnpm-lock.yaml /app/pnpm-lock.yaml
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
@@ -72,7 +72,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 WORKDIR /app/apps/api
 ENV NODE_ENV=production
 
-COPY apps/api/package.json apps/api/./
+COPY apps/api/package.json ./
 RUN pnpm install --no-frozen-lockfile --prod --shamefully-hoist && npm cache clean --force
 
 COPY --from=builder /app/apps/api/node_modules/.prisma ./node_modules/.prisma
