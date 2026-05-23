@@ -12,7 +12,7 @@ COPY apps/web/package.json ./apps/web/
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
 # Compila auth-core/auth-nest dist (main aponta lá)
-RUN pnpm add -w --save-dev typescript@5.6.2 \
+RUN pnpm add -w --save-dev typescript@5.6.2 @types/node@20 \
  && for d in /app/.central-shared/shared/packages/auth-core /app/.central-shared/shared/packages/auth-nest; do \
       sed -i '/"ignoreDeprecations"/d' "$d/tsconfig.build.json" 2>/dev/null || true; \
       cd "$d" && /app/node_modules/.bin/tsc -p tsconfig.build.json; \
