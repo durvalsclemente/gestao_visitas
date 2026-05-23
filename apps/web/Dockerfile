@@ -3,10 +3,22 @@
 
 FROM node:20-slim AS builder
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
-WORKDIR /app/apps/web
-COPY apps/web/package.json ./
+WORKDIR /app
+
+# Workspace + submodule + app — pnpm resolve @osc/ui-master via workspace:*
+COPY pnpm-workspace.yaml package.json ./
+COPY .central-shared ./.central-shared
+COPY apps/web/package.json ./apps/web/
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist
 
+# Compila auth-core/auth-nest dist (main aponta lá)
+RUN pnpm add -w --save-dev typescript@5.6.2 \
+ && for d in /app/.central-shared/shared/packages/auth-core /app/.central-shared/shared/packages/auth-nest; do \
+      sed -i '/"ignoreDeprecations"/d' "$d/tsconfig.build.json" 2>/dev/null || true; \
+      cd "$d" && /app/node_modules/.bin/tsc -p tsconfig.build.json; \
+    done
+
+WORKDIR /app/apps/web
 COPY apps/web ./
 
 ARG VITE_API_BASE_URL=https://api.visitas.osc.app.br/api
@@ -19,7 +31,7 @@ ENV VITE_CENTRAL_WEB_URL=$VITE_CENTRAL_WEB_URL
 ENV VITE_CLIENT_ID=$VITE_CLIENT_ID
 
 # Vite-only (pula tsc -b por drift de tipos pre-existente — ver CLAUDE.md)
-RUN npx vite build
+RUN pnpm exec vite build
 
 FROM nginx:1.27-alpine AS runtime
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
