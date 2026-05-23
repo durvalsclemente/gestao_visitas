@@ -51,7 +51,7 @@ RUN mkdir -p node_modules/@osc \
 
 RUN npx prisma generate
 # Build do API em transpile-only via swc — drift TS pre-existente (CLAUDE.md). Emite dist/*.js.
-RUN pnpm install --no-frozen-lockfile --shamefully-hoist --no-save --silent @swc/cli @swc/core >/dev/null 2>&1
+RUN pnpm add --save-prod=false --silent @swc/cli @swc/core >/dev/null 2>&1
 RUN cat > /tmp/.swcrc <<'EOF'
 {
   "jsc": {
